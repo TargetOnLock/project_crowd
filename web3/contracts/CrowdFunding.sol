@@ -18,10 +18,23 @@ contract CrowdFunding {
 
     uint256 public numberOfCampaigns = 0;
 
-    function createCampaign(address _owner, string memory _title, string memory _description, uint256 _target, uint256 _deadline, string memory _image) public returns (uint256) {
+    // Fee for creating a campaign (0.01 ETH)
+    uint256 public campaignCreationFee = 0.01 ether;
+
+    // Address to receive the campaign creation fee
+    address payable public feeRecipient = payable(0x6a88D94dc7657DaEbd12da07d4BF100970754ce9);
+
+    function createCampaign(address _owner, string memory _title, string memory _description, uint256 _target, uint256 _deadline, string memory _image) public payable returns (uint256) {
+        // Require that the sender pays the 0.01 ETH fee
+        require(msg.value >= campaignCreationFee, "Insufficient ETH to start a campaign. 0.01 ETH required.");
+
+        // Transfer the fee to the feeRecipient address
+        (bool feeSent,) = feeRecipient.call{value: campaignCreationFee}("");
+        require(feeSent, "Failed to transfer campaign creation fee.");
+
         Campaign storage campaign = campaigns[numberOfCampaigns];
 
-        require(campaign.deadline < block.timestamp, "The deadline should be a date in the future.");
+        require(_deadline > block.timestamp, "The deadline should be a date in the future.");
 
         campaign.owner = _owner;
         campaign.title = _title;
@@ -47,7 +60,7 @@ contract CrowdFunding {
         (bool sent,) = payable(campaign.owner).call{value: amount}("");
 
         if(sent) {
-            campaign.amountCollected = campaign.amountCollected + amount;
+            campaign.amountCollected += amount;
         }
     }
 
@@ -58,9 +71,8 @@ contract CrowdFunding {
     function getCampaigns() public view returns (Campaign[] memory) {
         Campaign[] memory allCampaigns = new Campaign[](numberOfCampaigns);
 
-        for(uint i = 0; i < numberOfCampaigns; i++) {
+        for (uint i = 0; i < numberOfCampaigns; i++) {
             Campaign storage item = campaigns[i];
-
             allCampaigns[i] = item;
         }
 
